@@ -3,12 +3,21 @@
 <xsl:stylesheet version="2.0"
                 xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                 xmlns:fh="http://hl7.org/fhir"
+                xmlns:saxon="http://saxon.sf.net/"
                 xpath-default-namespace="http://hl7.org/fhir">
 
   <xsl:variable name="elementsDoc" select="document('fhir-elements.xml')"/>
   <xsl:key name="element-by-path" match="*:element" use="@path" />
 
+  <!-- this element declares that output will be plain text -->
   <xsl:output method="text" encoding="UTF-8" media-type="text/plain"/>
+
+  <!-- this output we will use to convert XHTML to strings -->
+  <xsl:output name="xhtml"
+              method="xml"
+              omit-xml-declaration="yes"
+              indent="no"
+              media-type="text/html" />
 
   <xsl:function name="fh:get-json-type">
     <xsl:param name="path" />
@@ -70,7 +79,7 @@
       <!-- if we have @value attr in current element, just output it -->
       <xsl:when test="@value">
         <xsl:call-template name="value">
-          <xsl:with-param name="path" select="$path" />
+          <xsl:with-param name="type" select="fh:get-json-type($path, '')" />
           <xsl:with-param name="value" select="@value" />
         </xsl:call-template>
       </xsl:when>
@@ -101,33 +110,43 @@
                         select="$max = '*' or (current-group()[1]/@value
                                 and count(current-group()) > 1)" />
 
-          <xsl:if test="not(name() = 'text' and ./status)"> <!-- skip
-                                                                 text
-                                                                 for now -->
+          <!-- output JSON attribute -->
+          "<xsl:value-of select="name()" />":
 
-            <!-- open array if needed -->
-            "<xsl:value-of select="name()" />": <xsl:if test="$isArray">[</xsl:if>
+          <!-- open array if needed -->
+          <xsl:if test="$isArray">[</xsl:if>
 
-            <xsl:for-each select="current-group()">
-              <xsl:call-template name="element">
-                <xsl:with-param name="path">
-                  <xsl:choose>
-                    <xsl:when test="string-length($path) > 0">
-                      <xsl:value-of select="concat($path, '.', local-name())" />
-                    </xsl:when>
-                    <xsl:otherwise>
-                      <xsl:value-of select="local-name()" />
-                    </xsl:otherwise>
-                  </xsl:choose>
-                </xsl:with-param>
-              </xsl:call-template>
+          <xsl:for-each select="current-group()">
+            <xsl:choose>
+              <!-- special case for 'text' element -->
+              <xsl:when test="local-name() = 'text' and
+                              not(contains($path, '.'))">
+                <xsl:call-template name="text" />
+              </xsl:when>
+              <xsl:otherwise>
+                <xsl:call-template name="element">
+                  <xsl:with-param name="path">
+                    <xsl:choose>
+                      <xsl:when test="string-length($path) > 0">
+                        <xsl:value-of select="concat($path, '.', local-name())" />
+                      </xsl:when>
+                      <xsl:otherwise>
+                        <xsl:value-of select="local-name()" />
+                      </xsl:otherwise>
+                    </xsl:choose>
+                  </xsl:with-param>
+                </xsl:call-template>
+              </xsl:otherwise>
+            </xsl:choose>
 
-              <xsl:if test="position() != last()">,</xsl:if>
-            </xsl:for-each>
-
-            <xsl:if test="$isArray">]</xsl:if>
             <xsl:if test="position() != last()">,</xsl:if>
-          </xsl:if>
+          </xsl:for-each>
+
+          <!-- close array, if needed -->
+          <xsl:if test="$isArray">]</xsl:if>
+
+          <!-- insert comma if this is not last element -->
+          <xsl:if test="position() != last()">,</xsl:if>
         </xsl:for-each-group>
 
         <xsl:if test="$isObject">}</xsl:if>
@@ -135,12 +154,32 @@
     </xsl:choose>
   </xsl:template>
 
+  <!-- outputs 'text' element -->
+  <xsl:template name="text">
+    <xsl:text>{</xsl:text>
+
+    <xsl:if test="./status">
+      <xsl:text>"status": </xsl:text>
+      <xsl:call-template name="value">
+        <xsl:with-param name="type" select="'string'" />
+        <xsl:with-param name="value" select="./status/@value" />
+      </xsl:call-template>
+      <xsl:text>, </xsl:text>
+    </xsl:if>
+
+    <xsl:text>"div": </xsl:text>
+    <xsl:call-template name="value">
+      <xsl:with-param name="type" select="'string'" />
+      <xsl:with-param name="value" select="saxon:serialize(./*:div, 'xhtml')" />
+    </xsl:call-template>
+
+    <xsl:text>}</xsl:text>
+  </xsl:template>
+
   <!-- outputs JSON value: string, boolean or numeric -->
   <xsl:template name="value">
-    <xsl:param name="path" />
+    <xsl:param name="type" />
     <xsl:param name="value" />
-
-    <xsl:variable name="type" select="fh:get-json-type($path, '')" />
 
     <xsl:choose>
       <xsl:when test="$type = 'boolean' or
@@ -151,8 +190,9 @@
       <xsl:otherwise>           <!-- string fallback -->
         <xsl:text>"</xsl:text>
 
-        <!-- escape double quotes in string -->
-        <xsl:value-of select="replace($value, '&quot;', '\\&quot;')" />
+        <!-- escape double quotes in string, escape newlines too -->
+        <xsl:value-of select="replace(replace($value, '&quot;',
+                              '\\&quot;'), '\n', '\\n')" />
         <xsl:text>"</xsl:text>
       </xsl:otherwise>
     </xsl:choose>
