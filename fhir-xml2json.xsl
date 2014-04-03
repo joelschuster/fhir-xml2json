@@ -23,10 +23,6 @@
     <xsl:param name="path" />
     <xsl:param name="pathTail" />
 
-    <!-- <xsl:message terminate="no"> -->
-    <!--   determining type for <xsl:value-of select="$path" /> | <xsl:value-of select="$pathTail" /> -->
-    <!-- </xsl:message> -->
-
     <xsl:if test="string-length($path) = 0">
       <xsl:message terminate="yes">
         Zero-length $path passed, stopping.
@@ -34,10 +30,6 @@
     </xsl:if>
 
     <xsl:variable name="pType" select="key('element-by-path', $path, $elementsDoc)[1]/*:type/@value" />
-
-    <!-- <xsl:message terminate="no"> -->
-    <!--   !!! <xsl:value-of select="$pType" /> -->
-    <!-- </xsl:message> -->
 
     <xsl:choose>
       <xsl:when test="$pType and string-length($pathTail) = 0">
@@ -56,6 +48,7 @@
           </xsl:otherwise>
         </xsl:choose>
       </xsl:when>
+
       <xsl:otherwise>
         <xsl:variable name="tokenizedPath" select="tokenize($path, '\.')" />
         <xsl:variable name="newPath" select="string-join(remove($tokenizedPath, count($tokenizedPath)), '.')" />
@@ -65,12 +58,6 @@
       </xsl:otherwise>
     </xsl:choose>
   </xsl:function>
-
-  <xsl:template match="/*[1]">
-    <xsl:call-template name="element">
-      <xsl:with-param name="path"><xsl:value-of select="name()" /></xsl:with-param>
-    </xsl:call-template>
-  </xsl:template>
 
   <xsl:template name="element">
     <xsl:param name="path" />
@@ -123,18 +110,14 @@
                               not(contains($path, '.'))">
                 <xsl:call-template name="text" />
               </xsl:when>
+
+              <!-- for all elements except 'text' we just recursively
+                   call 'element' template -->
               <xsl:otherwise>
                 <xsl:call-template name="element">
-                  <xsl:with-param name="path">
-                    <xsl:choose>
-                      <xsl:when test="string-length($path) > 0">
-                        <xsl:value-of select="concat($path, '.', local-name())" />
-                      </xsl:when>
-                      <xsl:otherwise>
-                        <xsl:value-of select="local-name()" />
-                      </xsl:otherwise>
-                    </xsl:choose>
-                  </xsl:with-param>
+                  <xsl:with-param name="path"
+                                  select="concat($path, '.',
+                                          local-name())" />
                 </xsl:call-template>
               </xsl:otherwise>
             </xsl:choose>
@@ -196,5 +179,13 @@
         <xsl:text>"</xsl:text>
       </xsl:otherwise>
     </xsl:choose>
+  </xsl:template>
+
+  <!-- it's our entry point, just find root element and apply
+       'element' template to it -->
+  <xsl:template match="/*[1]">
+    <xsl:call-template name="element">
+      <xsl:with-param name="path"><xsl:value-of select="name()" /></xsl:with-param>
+    </xsl:call-template>
   </xsl:template>
 </xsl:stylesheet>
