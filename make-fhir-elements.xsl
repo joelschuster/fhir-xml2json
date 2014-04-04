@@ -22,7 +22,13 @@
     <xsl:param name="path" />
     <xsl:param name="min" />
     <xsl:param name="max" />
-    <xsl:param name="type" />
+    <xsl:param name="type" select="('integer', 'decimal', 'dateTime',
+                                              'date', 'instant', 'string', 'uri',
+                                              'boolean', 'code', 'base64Binary',
+                                              'Coding', 'CodeableConcept', 'Attachment',
+                                              'Identifier', 'Quantity', 'Range', 'Period',
+                                              'Ratio', 'HumanName', 'Address','Contact',
+                                              'Schedule', 'Resource')" />
 
     <xsl:for-each select="$type">
       <xsl:variable name="currentType" select="." />
@@ -51,7 +57,14 @@
       <type>
         <xsl:if test="$type">
           <xsl:attribute name="value">
-            <xsl:value-of select="$type"/>
+            <xsl:choose>
+              <xsl:when test="$type = 'Resource'">
+                <xsl:text>ResourceReference</xsl:text>
+              </xsl:when>
+              <xsl:otherwise>
+                <xsl:value-of select="$type"/>
+              </xsl:otherwise>
+            </xsl:choose>
           </xsl:attribute>
         </xsl:if>
       </type>
@@ -76,12 +89,25 @@
     <xsl:if test="not(contains($path, '.extension'))">
       <xsl:choose>
         <xsl:when test="contains($path, '[x]')">
-          <xsl:call-template name="expandPolymorphic">
-            <xsl:with-param name="path" select="$path" />
-            <xsl:with-param name="type" select="$type" />
-            <xsl:with-param name="min" select="$min" />
-            <xsl:with-param name="max" select="$max" />
-          </xsl:call-template>
+          <xsl:choose>
+            <!-- do not pass type to expandPolymorphic template so all
+                 availabe types will be used-->
+            <xsl:when test="$type = '*'">
+              <xsl:call-template name="expandPolymorphic">
+                <xsl:with-param name="path" select="$path" />
+                <xsl:with-param name="min" select="$min" />
+                <xsl:with-param name="max" select="$max" />
+              </xsl:call-template>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:call-template name="expandPolymorphic">
+                <xsl:with-param name="path" select="$path" />
+                <xsl:with-param name="type" select="$type" />
+                <xsl:with-param name="min" select="$min" />
+                <xsl:with-param name="max" select="$max" />
+              </xsl:call-template>
+            </xsl:otherwise>
+          </xsl:choose>
         </xsl:when>
         <xsl:otherwise>
           <xsl:call-template name="output">

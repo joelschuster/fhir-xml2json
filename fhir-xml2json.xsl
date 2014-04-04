@@ -64,15 +64,15 @@
     </xsl:choose>
   </xsl:function>
 
-  <xsl:function name="fh:get-json-type">
+  <!-- resolves path using complex types, so
+       Questionnaire.group.question.name.coding becomes
+       CodeableConcept.coding -->
+  <xsl:function name="fh:resolve-path">
     <xsl:param name="path" />
     <xsl:param name="pathTail" />
 
-    <xsl:variable name="tokenizedPath" select="tokenize($path, '\.')" />
-
-    <!-- <xsl:message terminate="no"> -->
-    <!--   !!! <xsl:value-of select="$path" /> | <xsl:value-of select="$pathTail" /> -->
-    <!-- </xsl:message> -->
+    <xsl:variable name="tokenizedPath" select="tokenize($path, '\.')"
+                  />
 
     <xsl:if test="string-length($path) = 0">
       <xsl:message terminate="yes">
@@ -80,27 +80,35 @@
       </xsl:message>
     </xsl:if>
 
-    <!-- type of fhir element currently pointed by $path -->
-    <xsl:variable name="type"
-                  select="key('element-by-path', $path,
-                          $elementsDoc)[1]/*:type/@value" />
+    <!-- fhir element currently pointed by $path -->
+    <xsl:variable name="el" select="key('element-by-path', $path, $elementsDoc)[1]" />
+
+    <!-- type of current fhir element -->
+    <xsl:variable name="type" select="$el/*:type/@value" />
 
     <xsl:choose>
       <xsl:when test="$type and string-length($pathTail) = 0">
-        <xsl:value-of select="$type" />
+        <xsl:value-of select="$path" />
       </xsl:when>
 
       <xsl:when test="$type and string-length($pathTail) > 0">
         <xsl:choose>
           <xsl:when test="starts-with($type, 'Resource(')">
-            <xsl:value-of select="'Resource'" />
+            <xsl:variable name="newPath" select="concat('ResourceReference.', $pathTail)" />
+            <xsl:value-of select="fh:resolve-path($newPath, '')[1]" />
           </xsl:when>
           <xsl:otherwise>
-            <xsl:variable name="ctPath" select="concat($type, '.', $pathTail)" />
-
-            <xsl:value-of select="fh:get-json-type($ctPath, '')[1]" />
+            <xsl:variable name="newPath" select="concat($type, '.', $pathTail)" />
+            <xsl:value-of select="fh:resolve-path($newPath, '')[1]" />
           </xsl:otherwise>
         </xsl:choose>
+      </xsl:when>
+
+      <!-- element with $path found, but no type was specified for
+           example, Questionnaire.group. In such case just return
+           current $path -->
+      <xsl:when test="$el">
+        <xsl:value-of select="$path" />
       </xsl:when>
 
       <xsl:otherwise>
@@ -112,9 +120,21 @@
                       select="replace(concat($tokenizedPath[count($tokenizedPath)],
                               '.', $pathTail), '\.$', '')" />
 
-        <xsl:value-of select="fh:get-json-type($newPath, $newPathTail)[1]" />
+        <xsl:value-of select="fh:resolve-path($newPath, $newPathTail)[1]" />
       </xsl:otherwise>
     </xsl:choose>
+
+
+  </xsl:function>
+
+  <xsl:function name="fh:get-json-type">
+    <xsl:param name="path" />
+
+    <xsl:variable name="resolvedPath" select="fh:resolve-path($path, '')" />
+    <xsl:variable name="el" select="key('element-by-path', $path, $elementsDoc)[1]" />
+
+    <!-- type of current fhir element -->
+    <xsl:value-of select="$el/*:type/@value" />
   </xsl:function>
 
   <xsl:template name="element">
@@ -126,7 +146,7 @@
       <xsl:when test="@value">
         <xsl:variable name="type"
                       select="fh:get-json-type(fh:normalize-path($path,
-                              ''), '')" />
+                              ''))" />
 
         <xsl:call-template name="value">
           <xsl:with-param name="type" select="$type" />
@@ -155,7 +175,9 @@
                                 $currentName), '')" />
 
           <xsl:variable name="max"
-                        select="key('element-by-path', $currentPath, $elementsDoc)[1]/*:max/@value"
+                        select="key('element-by-path',
+                                fh:resolve-path($currentPath, ''),
+                                $elementsDoc)[1]/*:max/@value"
                         />
 
           <xsl:variable name="isArray"
@@ -175,6 +197,12 @@
               <xsl:when test="local-name() = 'text' and
                               not(contains($path, '.'))">
                 <xsl:call-template name="text" />
+              </xsl:when>
+
+              <!-- special case for 'contained' resource -->
+              <xsl:when test="local-name() = 'contained' and
+                              not(contains($path, '.'))">
+                <xsl:call-template name="contained" />
               </xsl:when>
 
               <!-- ignore extensions for now -->
@@ -210,6 +238,10 @@
         <xsl:if test="$isObject">}</xsl:if>
       </xsl:otherwise>
     </xsl:choose>
+  </xsl:template>
+
+  <xsl:template name="contained">
+    <xsl:text>null</xsl:text>
   </xsl:template>
 
   <!-- outputs 'text' element -->
