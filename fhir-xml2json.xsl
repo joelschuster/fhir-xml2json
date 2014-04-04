@@ -131,7 +131,13 @@
     <xsl:param name="path" />
 
     <xsl:variable name="resolvedPath" select="fh:resolve-path($path, '')" />
-    <xsl:variable name="el" select="key('element-by-path', $path, $elementsDoc)[1]" />
+    <xsl:variable name="el" select="key('element-by-path', $resolvedPath,
+                                    $elementsDoc)[1]" />
+
+    <!-- <xsl:message> -->
+    <!--   <xsl:value-of select="$path" /> => <xsl:value-of -->
+    <!--   select="$resolvedPath" />: <xsl:value-of select="$el/*:type/@value" /> -->
+    <!-- </xsl:message> -->
 
     <!-- type of current fhir element -->
     <xsl:value-of select="$el/*:type/@value" />
