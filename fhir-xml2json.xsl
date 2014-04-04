@@ -19,9 +19,60 @@
               indent="no"
               media-type="text/html" />
 
+  <!-- normalizes path using nameRefs in fhir-elements.xml. So
+
+       Questionnaire.group.group.group.question.group.question.text
+       becomes
+       Questionnaire.group.question.text -->
+  <xsl:function name="fh:normalize-path">
+    <xsl:param name="pathIn" />
+    <xsl:param name="pathOut" />
+
+    <xsl:choose>
+      <xsl:when test="string-length($pathIn) = 0">
+        <xsl:value-of select="$pathOut" />
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:variable name="tokenizedPathIn" select="tokenize($pathIn,
+                                                     '\.')" />
+
+        <xsl:variable name="nameRef"
+                      select="key('element-by-path', $pathOut,
+                              $elementsDoc)[1]/*:nameRef/@value" />
+
+        <xsl:choose>
+          <xsl:when test="$nameRef">
+            <xsl:value-of select="fh:normalize-path($pathIn,
+                                  $nameRef)" />
+          </xsl:when>
+
+          <xsl:otherwise>
+            <xsl:variable name="newPathIn"
+                          select="string-join(subsequence($tokenizedPathIn,
+                                  2, count($tokenizedPathIn) - 1),
+                                  '.')" />
+
+            <xsl:variable name="newPathOut"
+                          select="string-join(($pathOut,
+                                  $tokenizedPathIn[1]), '.')" />
+
+            <xsl:value-of select="fh:normalize-path($newPathIn,
+                                  replace($newPathOut, '^\.', ''))" />
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:function>
+
   <xsl:function name="fh:get-json-type">
     <xsl:param name="path" />
     <xsl:param name="pathTail" />
+
+    <xsl:variable name="tokenizedPath" select="tokenize($path, '\.')" />
+
+    <!-- <xsl:message terminate="no"> -->
+    <!--   !!! <xsl:value-of select="$path" /> | <xsl:value-of select="$pathTail" /> -->
+    <!-- </xsl:message> -->
 
     <xsl:if test="string-length($path) = 0">
       <xsl:message terminate="yes">
@@ -29,20 +80,23 @@
       </xsl:message>
     </xsl:if>
 
-    <xsl:variable name="pType" select="key('element-by-path', $path, $elementsDoc)[1]/*:type/@value" />
+    <!-- type of fhir element currently pointed by $path -->
+    <xsl:variable name="type"
+                  select="key('element-by-path', $path,
+                          $elementsDoc)[1]/*:type/@value" />
 
     <xsl:choose>
-      <xsl:when test="$pType and string-length($pathTail) = 0">
-        <xsl:value-of select="$pType" />
+      <xsl:when test="$type and string-length($pathTail) = 0">
+        <xsl:value-of select="$type" />
       </xsl:when>
 
-      <xsl:when test="$pType and string-length($pathTail) > 0">
+      <xsl:when test="$type and string-length($pathTail) > 0">
         <xsl:choose>
-          <xsl:when test="starts-with($pType, 'Resource(')">
+          <xsl:when test="starts-with($type, 'Resource(')">
             <xsl:value-of select="'Resource'" />
           </xsl:when>
           <xsl:otherwise>
-            <xsl:variable name="ctPath" select="concat($pType, '.', replace($pathTail, '\.$', ''))" />
+            <xsl:variable name="ctPath" select="concat($type, '.', $pathTail)" />
 
             <xsl:value-of select="fh:get-json-type($ctPath, '')[1]" />
           </xsl:otherwise>
@@ -50,9 +104,13 @@
       </xsl:when>
 
       <xsl:otherwise>
-        <xsl:variable name="tokenizedPath" select="tokenize($path, '\.')" />
-        <xsl:variable name="newPath" select="string-join(remove($tokenizedPath, count($tokenizedPath)), '.')" />
-        <xsl:variable name="newPathTail" select="concat($tokenizedPath[count($tokenizedPath)], '.', $pathTail)" />
+        <xsl:variable name="newPath"
+                      select="string-join(remove($tokenizedPath,
+                              count($tokenizedPath)), '.')" />
+
+        <xsl:variable name="newPathTail"
+                      select="replace(concat($tokenizedPath[count($tokenizedPath)],
+                              '.', $pathTail), '\.$', '')" />
 
         <xsl:value-of select="fh:get-json-type($newPath, $newPathTail)[1]" />
       </xsl:otherwise>
@@ -63,10 +121,15 @@
     <xsl:param name="path" />
 
     <xsl:choose>
-      <!-- if we have @value attr in current element, just output it -->
+      <!-- if we have @value attr in current element, just output it
+           -->
       <xsl:when test="@value">
+        <xsl:variable name="type"
+                      select="fh:get-json-type(fh:normalize-path($path,
+                              ''), '')" />
+
         <xsl:call-template name="value">
-          <xsl:with-param name="type" select="fh:get-json-type($path, '')" />
+          <xsl:with-param name="type" select="$type" />
           <xsl:with-param name="value" select="@value" />
         </xsl:call-template>
       </xsl:when>
@@ -86,16 +149,19 @@
           <xsl:variable name="currentName"
                         select="name(current-group()[1])" />
 
+          <!-- normalized path of current element -->
           <xsl:variable name="currentPath"
-                        select="concat($path, '.', $currentName)" />
+                        select="fh:normalize-path(concat($path, '.',
+                                $currentName), '')" />
 
           <xsl:variable name="max"
                         select="key('element-by-path', $currentPath, $elementsDoc)[1]/*:max/@value"
                         />
 
           <xsl:variable name="isArray"
-                        select="$max = '*' or (current-group()[1]/@value
-                                and count(current-group()) > 1)" />
+                        select="$max = '*' or
+                                (current-group()[1]/@value and
+                                count(current-group()) > 1)" />
 
           <!-- output JSON attribute -->
           "<xsl:value-of select="name()" />":
@@ -109,6 +175,15 @@
               <xsl:when test="local-name() = 'text' and
                               not(contains($path, '.'))">
                 <xsl:call-template name="text" />
+              </xsl:when>
+
+              <!-- ignore extensions for now -->
+              <xsl:when test="local-name() = 'extension'">
+                <xsl:message>
+                  <xsl:text>WARNING: ignoring 'extension' element</xsl:text>
+                </xsl:message>
+
+                <xsl:text>null</xsl:text>
               </xsl:when>
 
               <!-- for all elements except 'text' we just recursively
