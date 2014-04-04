@@ -20,8 +20,9 @@ compare:
 	  fhirfile=build/`basename $$example`; \
 		echo "Comparing $$example with $$fhirfile"; \
 	  echo "--------------------------------------------------"; \
-	  ./jsondiff $$example $$fhirfile | grep -E "^[+-]" | grep -v -E "div:"; \
-	  echo "--------------------------------------------------"; \
+		cat $$fhirfile | python -mjson.tool > /tmp/fhir-variant.json; \
+		diff -u /tmp/fhir-variant.json $$example; \
+		echo "--------------------------------------------------"; \
 	done;
 
 clean:
