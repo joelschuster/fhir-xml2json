@@ -163,6 +163,11 @@
 
         <xsl:if test="$path = local-name()">
           "resourceType": "<xsl:value-of select="local-name()" />",
+
+          <!-- emit _id attribute, if needed -->
+          <xsl:if test="@id">
+            "_id": "<xsl:value-of select="@id" />",
+          </xsl:if>
         </xsl:if>
 
         <xsl:for-each-group select="*" group-by="local-name()">
@@ -241,7 +246,12 @@
   </xsl:template>
 
   <xsl:template name="contained">
-    <xsl:text>null</xsl:text>
+    <!-- "<xsl:value-of select="*[1]/name()" />" -->
+    <xsl:for-each select="*">
+      <xsl:call-template name="element">
+        <xsl:with-param name="path"><xsl:value-of select="name()" /></xsl:with-param>
+      </xsl:call-template>
+    </xsl:for-each>
   </xsl:template>
 
   <!-- outputs 'text' element -->
