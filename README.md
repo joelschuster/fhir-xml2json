@@ -38,8 +38,19 @@ Just clone this repo, cd into it and run `make`:
 
 If anything finished without errors, you will see `fhir-elements.xml`,
 which is XML file containing all metainformation required to perform
-XML => JSON conversion. In `examples` directory you can find some FHIR
-resource samples converted to JSON.
+XML => JSON conversion. In `examples` directory you'll find FHIR
+example resources converted to JSON.
+
+Testing correctness of conversion
+----
+
+Invoke following commands:
+
+    $ make examples
+    $ make compare
+
+Last command will output differences between JSON files converted with
+XSLT and original JSON examples.
 
 License
 -----

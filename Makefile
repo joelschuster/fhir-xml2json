@@ -18,11 +18,9 @@ examples: build/profiles-resources.xml fhir-elements.xml
 compare:
 	for example in $(wildcard examples/*example.json); do \
 	  fhirfile=build/`basename $$example`; \
-		echo "Comparing $$example with $$fhirfile"; \
-	  echo "--------------------------------------------------"; \
 		cat $$fhirfile | python -mjson.tool > /tmp/fhir-variant.json; \
 		diff -u /tmp/fhir-variant.json $$example; \
-		echo "--------------------------------------------------"; \
+		echo "-------------------------------------------------------------------"; \
 	done;
 
 clean:
