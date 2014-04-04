@@ -290,9 +290,10 @@
       <xsl:otherwise>           <!-- string fallback -->
         <xsl:text>"</xsl:text>
 
-        <!-- escape double quotes in string, escape newlines too -->
-        <xsl:value-of select="replace(replace($value, '&quot;',
-                              '\\&quot;'), '\n', '\\n')" />
+        <!-- escape double quotes in string, escape newlines too,
+             remove linefeeds, escape tabs -->
+        <xsl:value-of select="replace(replace(replace($value, '&quot;',
+                              '\\&quot;'), '\r?\n', '\\n'), '\t', '\\t')" />
         <xsl:text>"</xsl:text>
       </xsl:otherwise>
     </xsl:choose>
