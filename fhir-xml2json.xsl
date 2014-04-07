@@ -12,13 +12,6 @@
   <!-- this element declares that output will be plain text -->
   <xsl:output method="text" encoding="UTF-8" media-type="text/plain"/>
 
-  <!-- this output we will use to convert XHTML to strings -->
-  <xsl:output name="xhtml"
-              method="xml"
-              omit-xml-declaration="yes"
-              indent="no"
-              media-type="text/html" />
-
   <!-- normalizes path using nameRefs in fhir-elements.xml. So
 
        Questionnaire.group.group.group.question.group.question.text
@@ -252,7 +245,6 @@
   </xsl:template>
 
   <xsl:template name="contained">
-    <!-- "<xsl:value-of select="*[1]/name()" />" -->
     <xsl:for-each select="*">
       <xsl:call-template name="element">
         <xsl:with-param name="path"><xsl:value-of select="name()" /></xsl:with-param>
@@ -274,9 +266,15 @@
     </xsl:if>
 
     <xsl:text>"div": </xsl:text>
+
+    <!-- serialize div element to string -->
+    <xsl:variable name="serializedHtml">
+      <xsl:apply-templates select="./*:div" mode="serialize" />
+    </xsl:variable>
+
     <xsl:call-template name="value">
       <xsl:with-param name="type" select="'string'" />
-      <xsl:with-param name="value" select="saxon:serialize(./*:div, 'xhtml')" />
+      <xsl:with-param name="value" select="$serializedHtml" />
     </xsl:call-template>
 
     <xsl:text>}</xsl:text>
@@ -311,5 +309,37 @@
     <xsl:call-template name="element">
       <xsl:with-param name="path"><xsl:value-of select="name()" /></xsl:with-param>
     </xsl:call-template>
+  </xsl:template>
+
+  <!-- set of templates to serialize XHTML to string
+       http://stackoverflow.com/questions/6696382/xslt-how-to-convert-xml-node-to-string-->
+  <xsl:template match="*" mode="serialize">
+    <xsl:text>&lt;</xsl:text>
+    <xsl:value-of select="name()"/>
+    <xsl:apply-templates select="@*" mode="serialize" />
+    <xsl:choose>
+      <xsl:when test="node()">
+        <xsl:text>&gt;</xsl:text>
+        <xsl:apply-templates mode="serialize" />
+        <xsl:text>&lt;/</xsl:text>
+        <xsl:value-of select="name()"/>
+        <xsl:text>&gt;</xsl:text>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:text> /&gt;</xsl:text>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template match="@*" mode="serialize">
+    <xsl:text> </xsl:text>
+    <xsl:value-of select="name()"/>
+    <xsl:text>="</xsl:text>
+    <xsl:value-of select="."/>
+    <xsl:text>"</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="text()" mode="serialize">
+    <xsl:value-of select="."/>
   </xsl:template>
 </xsl:stylesheet>
