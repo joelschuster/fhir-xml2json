@@ -22,6 +22,7 @@
     <xsl:param name="path" />
     <xsl:param name="min" />
     <xsl:param name="max" />
+    <xsl:param name="weight" />
     <xsl:param name="type" select="('integer', 'decimal', 'dateTime',
                                               'date', 'instant', 'string', 'uri',
                                               'boolean', 'code', 'base64Binary',
@@ -38,6 +39,7 @@
         <xsl:with-param name="type" select="$currentType" />
         <xsl:with-param name="min" select="$min" />
         <xsl:with-param name="max" select="$max" />
+        <xsl:with-param name="weight" select="$weight" />
       </xsl:call-template>
     </xsl:for-each>
   </xsl:template>
@@ -48,6 +50,7 @@
     <xsl:param name="min" />
     <xsl:param name="max" />
     <xsl:param name="type" />
+    <xsl:param name="weight" select="1" />
     <xsl:param name="nameRef" select="''" />
 
     <element>
@@ -75,6 +78,7 @@
           </xsl:attribute>
         </xsl:if>
       </nameRef>
+      <weight><xsl:attribute name="value"><xsl:value-of select="$weight" /></xsl:attribute></weight>
     </element>
   </xsl:template>
 
@@ -84,6 +88,7 @@
     <xsl:variable name="min" select="definition/min/@value" />
     <xsl:variable name="max" select="definition/max/@value" />
     <xsl:variable name="nameRef" select="definition/nameReference/@value" />
+    <xsl:variable name="weight" select="position()" />
 
     <!-- Ignore extensions for now -->
     <xsl:if test="not(contains($path, '.extension'))">
@@ -97,6 +102,7 @@
                 <xsl:with-param name="path" select="$path" />
                 <xsl:with-param name="min" select="$min" />
                 <xsl:with-param name="max" select="$max" />
+                <xsl:with-param name="weight" select="$weight" />
               </xsl:call-template>
             </xsl:when>
             <xsl:otherwise>
@@ -105,6 +111,7 @@
                 <xsl:with-param name="type" select="$type" />
                 <xsl:with-param name="min" select="$min" />
                 <xsl:with-param name="max" select="$max" />
+                <xsl:with-param name="weight" select="$weight" />
               </xsl:call-template>
             </xsl:otherwise>
           </xsl:choose>
@@ -116,6 +123,7 @@
             <xsl:with-param name="min" select="$min" />
             <xsl:with-param name="max" select="$max" />
             <xsl:with-param name="nameRef" select="$nameRef" />
+            <xsl:with-param name="weight" select="$weight" />
           </xsl:call-template>
         </xsl:otherwise>
       </xsl:choose>
@@ -132,6 +140,7 @@
         <xsl:with-param name="type" select="definition/type/code/@value" />
         <xsl:with-param name="min" select="definition/min/@value" />
         <xsl:with-param name="max" select="definition/max/@value" />
+        <xsl:with-param name="weight" select="position()" />
       </xsl:call-template>
     </xsl:for-each-group>
   </xsl:template>
