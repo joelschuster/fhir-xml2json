@@ -52,12 +52,6 @@ Invoke following commands:
 Last command will output differences between JSON files converted with
 XSLT and original JSON examples.
 
-## Service
-
-> All premium services from developers of Fhirbase projects 
-> should be requested from Choice Hospital Systems (http://Choice-HS.com)
-
-
 License
 -----
 
