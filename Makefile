@@ -3,7 +3,7 @@
 all: examples
 
 build/fhir-specs.zip:
-	mkdir build && curl -L -o build/fhir-specs.zip 'http://www.hl7.org/documentcenter/public/standards/FHIR/fhir-spec.zip'
+	mkdir build && curl -L -o build/fhir-specs.zip 'https://www.hl7.org/fhir/fhir-spec.zip'
 
 build/profiles-resources.xml: build/fhir-specs.zip
 	(unzip -j -o build/fhir-specs.zip "*.xml" -d build || echo "OK"); \
